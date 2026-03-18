@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Biblioteca</title>
     <style>
         body {
@@ -41,9 +42,17 @@
             padding: 6px 14px;
             border-radius: 4px;
             border: none;
-            background-color: #1e88e5;
-            color: #fff;
             cursor: pointer;
+            color: #fff;
+        }
+
+        #btn-guardar   { background-color: #1e88e5; }
+        #btn-cancelar  { background-color: #555; margin-left: 6px; }
+
+        .error-msg {
+            color: #ff5252;
+            font-size: 13px;
+            margin-top: 6px;
         }
 
         .buscador { margin-bottom: 10px; }
@@ -80,7 +89,6 @@
 
         .chip:hover { background-color: #1565c0; border-color: #1565c0; }
 
-        /* Estado activo: chip seleccionado */
         .chip.activa {
             background-color: #1e88e5;
             border-color: #1e88e5;
@@ -122,14 +130,18 @@
 <div class="contenedor">
 
     <div class="columna-izquierda">
-        <h2>Agregar libro</h2>
+        <h2 id="titulo-formulario">Agregar libro</h2>
         <form id="form-libro">
-            <input type="hidden"  id="libro-id">
-            <input type="text"    id="titulo"  placeholder="Título">
-            <input type="text"    id="autor"   placeholder="Autor">
-            <input type="text"    id="genero"  placeholder="Género">
-            <input type="number"  id="anio"    placeholder="Año">
-            <button type="submit">Guardar</button>
+            <input type="hidden" id="libro-id">
+            <input type="text"   id="titulo"  placeholder="Título">
+            <input type="text"   id="autor"   placeholder="Autor">
+            <input type="text"   id="genero"  placeholder="Género">
+            <input type="number" id="anio"    placeholder="Año">
+            <div class="error-msg" id="error-msg"></div>
+            <button type="submit" id="btn-guardar">Guardar</button>
+            <button type="button" id="btn-cancelar"
+                    onclick="cancelarEdicion()"
+                    style="display:none;">Cancelar</button>
         </form>
     </div>
 
@@ -205,7 +217,6 @@
     }
 
     function aplicarSugerencia(elementoChip, texto) {
-        // Si hago clic en el chip que ya está activo → desactivo
         if (chipActivo === elementoChip) {
             chipActivo.classList.remove('activa');
             chipActivo = null;
@@ -213,22 +224,15 @@
             renderLibros(todosLosLibros);
             return;
         }
-
-        // Si había otro chip activo, lo apago
-        if (chipActivo) {
-            chipActivo.classList.remove('activa');
-        }
-
-        // Activo el nuevo chip
+        if (chipActivo) chipActivo.classList.remove('activa');
         chipActivo = elementoChip;
         chipActivo.classList.add('activa');
-
-        // Aplico el filtro
         document.getElementById('buscador').value = texto;
         filtrarLibros();
     }
 
     async function eliminarLibro(id) {
+        if (!confirm('¿Seguro que quieres eliminar este libro?')) return;
         await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
         await cargarLibros();
         filtrarLibros();
@@ -242,16 +246,42 @@
         document.getElementById('autor').value    = libro.autor;
         document.getElementById('genero').value   = libro.genero;
         document.getElementById('anio').value     = libro.anioPublicacion;
+
+        // Cambiar título del formulario y mostrar botón Cancelar
+        document.getElementById('titulo-formulario').textContent = 'Editar libro';
+        document.getElementById('btn-cancelar').style.display = 'inline-block';
+        document.getElementById('error-msg').textContent = '';
+    }
+
+    function cancelarEdicion() {
+        document.getElementById('form-libro').reset();
+        document.getElementById('libro-id').value = '';
+        document.getElementById('titulo-formulario').textContent = 'Agregar libro';
+        document.getElementById('btn-cancelar').style.display = 'none';
+        document.getElementById('error-msg').textContent = '';
     }
 
     document.getElementById('form-libro').addEventListener('submit', async (e) => {
         e.preventDefault();
+
+        const titulo = document.getElementById('titulo').value.trim();
+        const autor  = document.getElementById('autor').value.trim();
+        const anio   = parseInt(document.getElementById('anio').value) || 0;
+        const errorMsg = document.getElementById('error-msg');
+
+        // Validación en el frontend
+        if (!titulo || !autor || anio <= 0) {
+            errorMsg.textContent = 'Título, autor y año son obligatorios.';
+            return;
+        }
+        errorMsg.textContent = '';
+
         const id = document.getElementById('libro-id').value;
         const data = {
-            titulo:          document.getElementById('titulo').value,
-            autor:           document.getElementById('autor').value,
-            genero:          document.getElementById('genero').value,
-            anioPublicacion: parseInt(document.getElementById('anio').value)
+            titulo,
+            autor,
+            genero:          document.getElementById('genero').value.trim(),
+            anioPublicacion: anio
         };
 
         const method = id ? 'PUT' : 'POST';
@@ -263,8 +293,7 @@
             body: JSON.stringify(data)
         });
 
-        e.target.reset();
-        document.getElementById('libro-id').value = '';
+        cancelarEdicion();
         await cargarLibros();
         filtrarLibros();
     });

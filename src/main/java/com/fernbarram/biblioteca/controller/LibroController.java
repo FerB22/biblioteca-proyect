@@ -2,7 +2,7 @@ package com.fernbarram.biblioteca.controller;
 
 import com.fernbarram.biblioteca.model.Libro;
 import com.fernbarram.biblioteca.service.LibroService;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,8 +14,11 @@ import java.util.List;
 @CrossOrigin(origins = "*")
 public class LibroController {
 
-    @Autowired
-    private LibroService libroService;
+    private final LibroService libroService;
+
+    public LibroController(LibroService libroService) {
+        this.libroService = libroService;
+    }
 
     @GetMapping
     public List<Libro> listar() {
@@ -30,14 +33,14 @@ public class LibroController {
     }
 
     @PostMapping
-    public ResponseEntity<Libro> crear(@RequestBody Libro libro) {
+    public ResponseEntity<Libro> crear(@Valid @RequestBody Libro libro) {
         Libro creado = libroService.crear(libro);
         return ResponseEntity.status(HttpStatus.CREATED).body(creado);
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<Libro> actualizar(@PathVariable Long id,
-                                            @RequestBody Libro libro) {
+                                            @Valid @RequestBody Libro libro) {
         return libroService.actualizar(id, libro)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -53,4 +56,3 @@ public class LibroController {
         }
     }
 }
-
