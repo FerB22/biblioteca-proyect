@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Biblioteca</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+        }
+
+        h1 { margin-top: 0; margin-bottom: 20px; }
+
+        .contenedor {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 40px;
+            margin-top: 20px;
+        }
+
+        .columna-izquierda h2,
+        .columna-derecha h2 { margin-top: 0; }
+
+        #form-libro input {
+            display: block;
+            margin: 6px 0;
+            padding: 6px 8px;
+            width: 100%;
+            box-sizing: border-box;
+            border-radius: 4px;
+            border: 1px solid #555;
+            background-color: #111;
+            color: #fff;
+        }
+
+        #form-libro button {
+            margin-top: 8px;
+            padding: 6px 14px;
+            border-radius: 4px;
+            border: none;
+            background-color: #1e88e5;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        .buscador { margin-bottom: 10px; }
+
+        .buscador input {
+            width: 100%;
+            padding: 8px 14px;
+            border-radius: 999px;
+            border: 1px solid #555;
+            background-color: #111;
+            color: #fff;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        .buscador input::placeholder { color: #888; }
+
+        #sugerencias {
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .chip {
+            display: inline-block;
+            padding: 4px 10px;
+            margin: 2px 4px 2px 0;
+            border-radius: 999px;
+            border: 1px solid #555;
+            background-color: #111;
+            color: #fff;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .chip:hover { background-color: #1565c0; border-color: #1565c0; }
+
+        /* Estado activo: chip seleccionado */
+        .chip.activa {
+            background-color: #1e88e5;
+            border-color: #1e88e5;
+            color: #fff;
+        }
+
+        .libro {
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #111;
+        }
+
+        .btn-editar {
+            margin-right: 6px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: none;
+            background-color: #43a047;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        .btn-eliminar {
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: none;
+            background-color: #e53935;
+            color: #fff;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Biblioteca</h1>
+
+<div class="contenedor">
+
+    <div class="columna-izquierda">
+        <h2>Agregar libro</h2>
+        <form id="form-libro">
+            <input type="hidden"  id="libro-id">
+            <input type="text"    id="titulo"  placeholder="Título">
+            <input type="text"    id="autor"   placeholder="Autor">
+            <input type="text"    id="genero"  placeholder="Género">
+            <input type="number"  id="anio"    placeholder="Año">
+            <button type="submit">Guardar</button>
+        </form>
+    </div>
+
+    <div class="columna-derecha">
+        <h2>Libros</h2>
+
+        <div class="buscador">
+            <input type="text" id="buscador"
+                   placeholder="Buscar por título, autor o género..."
+                   oninput="filtrarLibros()">
+        </div>
+
+        <div id="sugerencias">
+            Sugerencias:
+            <span class="chip" onclick="aplicarSugerencia(this, 'Terror')">Terror</span>
+            <span class="chip" onclick="aplicarSugerencia(this, 'Fantasía')">Fantasía</span>
+            <span class="chip" onclick="aplicarSugerencia(this, 'Ciencia ficción')">Ciencia ficción</span>
+            <span class="chip" onclick="aplicarSugerencia(this, 'Realismo mágico')">Realismo mágico</span>
+            <span class="chip" onclick="aplicarSugerencia(this, 'Orwell')">Orwell</span>
+        </div>
+
+        <div id="lista-libros"></div>
+    </div>
+
+</div>
+
+<script>
+    const API_URL = 'http://localhost:8080/api/libros';
+    let todosLosLibros = [];
+    let chipActivo = null;
+
+    async function cargarLibros() {
+        const res = await fetch(API_URL);
+        todosLosLibros = await res.json();
+        renderLibros(todosLosLibros);
+    }
+
+    function renderLibros(libros) {
+        const contenedor = document.getElementById('lista-libros');
+        contenedor.innerHTML = '';
+
+        if (libros.length === 0) {
+            contenedor.innerHTML = '<p>No hay libros que coincidan.</p>';
+            return;
+        }
+
+        libros.forEach(libro => {
+            const div = document.createElement('div');
+            div.className = 'libro';
+            div.innerHTML = `
+                <strong>${libro.titulo}</strong> — ${libro.autor} (${libro.anioPublicacion})<br>
+                Género: ${libro.genero || '—'}
+                <br><br>
+                <button class="btn-editar"   onclick="editarLibro(${libro.id})">Editar</button>
+                <button class="btn-eliminar" onclick="eliminarLibro(${libro.id})">Eliminar</button>
+            `;
+            contenedor.appendChild(div);
+        });
+    }
+
+    function filtrarLibros() {
+        const texto = document.getElementById('buscador').value.toLowerCase();
+        if (!texto) {
+            renderLibros(todosLosLibros);
+            return;
+        }
+        const filtrados = todosLosLibros.filter(libro =>
+            (libro.titulo  && libro.titulo.toLowerCase().includes(texto))  ||
+            (libro.autor   && libro.autor.toLowerCase().includes(texto))   ||
+            (libro.genero  && libro.genero.toLowerCase().includes(texto))
+        );
+        renderLibros(filtrados);
+    }
+
+    function aplicarSugerencia(elementoChip, texto) {
+        // Si hago clic en el chip que ya está activo → desactivo
+        if (chipActivo === elementoChip) {
+            chipActivo.classList.remove('activa');
+            chipActivo = null;
+            document.getElementById('buscador').value = '';
+            renderLibros(todosLosLibros);
+            return;
+        }
+
+        // Si había otro chip activo, lo apago
+        if (chipActivo) {
+            chipActivo.classList.remove('activa');
+        }
+
+        // Activo el nuevo chip
+        chipActivo = elementoChip;
+        chipActivo.classList.add('activa');
+
+        // Aplico el filtro
+        document.getElementById('buscador').value = texto;
+        filtrarLibros();
+    }
+
+    async function eliminarLibro(id) {
+        await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+        await cargarLibros();
+        filtrarLibros();
+    }
+
+    async function editarLibro(id) {
+        const res = await fetch(`${API_URL}/${id}`);
+        const libro = await res.json();
+        document.getElementById('libro-id').value = libro.id;
+        document.getElementById('titulo').value   = libro.titulo;
+        document.getElementById('autor').value    = libro.autor;
+        document.getElementById('genero').value   = libro.genero;
+        document.getElementById('anio').value     = libro.anioPublicacion;
+    }
+
+    document.getElementById('form-libro').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('libro-id').value;
+        const data = {
+            titulo:          document.getElementById('titulo').value,
+            autor:           document.getElementById('autor').value,
+            genero:          document.getElementById('genero').value,
+            anioPublicacion: parseInt(document.getElementById('anio').value)
+        };
+
+        const method = id ? 'PUT' : 'POST';
+        const url    = id ? `${API_URL}/${id}` : API_URL;
+
+        await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        e.target.reset();
+        document.getElementById('libro-id').value = '';
+        await cargarLibros();
+        filtrarLibros();
+    });
+
+    cargarLibros();
+</script>
+
+</body>
+</html>
