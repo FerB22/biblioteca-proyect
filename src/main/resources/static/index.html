@@ -169,14 +169,22 @@
 </div>
 
 <script>
-    const API_URL = 'http://localhost:8080/api/libros';
-    let todosLosLibros = [];
+    const API_URL = '/api/libros'; // ← ruta relativa, ya no hardcodeada
     let chipActivo = null;
+
+    // Muestra un mensaje de error en la lista de libros
+    function mostrarError(mensaje) {
+        const contenedor = document.getElementById('lista-libros');
+        contenedor.innerHTML = `<p style="color:#ff5252;">${mensaje}</p>`;
+    }
 
     async function cargarLibros() {
         const res = await fetch(API_URL);
-        todosLosLibros = await res.json();
-        renderLibros(todosLosLibros);
+        if (!res.ok) {
+            mostrarError('No se pudo conectar con el servidor. ¿Está corriendo Spring Boot?');
+            return;
+        }
+        renderLibros(await res.json());
     }
 
     function renderLibros(libros) {
@@ -202,18 +210,16 @@
         });
     }
 
-    function filtrarLibros() {
-        const texto = document.getElementById('buscador').value.toLowerCase();
-        if (!texto) {
-            renderLibros(todosLosLibros);
+    async function filtrarLibros() {
+        const texto = document.getElementById('buscador').value.trim();
+        const url = texto ? `${API_URL}?texto=${encodeURIComponent(texto)}` : API_URL;
+
+        const res = await fetch(url);
+        if (!res.ok) {
+            mostrarError('Error al buscar libros. Intenta de nuevo.');
             return;
         }
-        const filtrados = todosLosLibros.filter(libro =>
-            (libro.titulo  && libro.titulo.toLowerCase().includes(texto))  ||
-            (libro.autor   && libro.autor.toLowerCase().includes(texto))   ||
-            (libro.genero  && libro.genero.toLowerCase().includes(texto))
-        );
-        renderLibros(filtrados);
+        renderLibros(await res.json());
     }
 
     function aplicarSugerencia(elementoChip, texto) {
@@ -221,7 +227,7 @@
             chipActivo.classList.remove('activa');
             chipActivo = null;
             document.getElementById('buscador').value = '';
-            renderLibros(todosLosLibros);
+            filtrarLibros(); // ← ahora usa filtrarLibros() en vez de renderLibros(todosLosLibros)
             return;
         }
         if (chipActivo) chipActivo.classList.remove('activa');
@@ -233,21 +239,26 @@
 
     async function eliminarLibro(id) {
         if (!confirm('¿Seguro que quieres eliminar este libro?')) return;
-        await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
-        await cargarLibros();
-        filtrarLibros();
+        const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+            mostrarError('Error al eliminar el libro.');
+            return;
+        }
+        await filtrarLibros(); // ← recarga respetando el filtro activo
     }
 
     async function editarLibro(id) {
         const res = await fetch(`${API_URL}/${id}`);
+        if (!res.ok) {
+            mostrarError('No se pudo cargar el libro.');
+            return;
+        }
         const libro = await res.json();
         document.getElementById('libro-id').value = libro.id;
         document.getElementById('titulo').value   = libro.titulo;
         document.getElementById('autor').value    = libro.autor;
         document.getElementById('genero').value   = libro.genero;
         document.getElementById('anio').value     = libro.anioPublicacion;
-
-        // Cambiar título del formulario y mostrar botón Cancelar
         document.getElementById('titulo-formulario').textContent = 'Editar libro';
         document.getElementById('btn-cancelar').style.display = 'inline-block';
         document.getElementById('error-msg').textContent = '';
@@ -269,14 +280,13 @@
         const anio   = parseInt(document.getElementById('anio').value) || 0;
         const errorMsg = document.getElementById('error-msg');
 
-        // Validación en el frontend
         if (!titulo || !autor || anio <= 0) {
             errorMsg.textContent = 'Título, autor y año son obligatorios.';
             return;
         }
         errorMsg.textContent = '';
 
-        const id = document.getElementById('libro-id').value;
+        const id   = document.getElementById('libro-id').value;
         const data = {
             titulo,
             autor,
@@ -287,15 +297,19 @@
         const method = id ? 'PUT' : 'POST';
         const url    = id ? `${API_URL}/${id}` : API_URL;
 
-        await fetch(url, {
+        const res = await fetch(url, {
             method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
 
+        if (!res.ok) {
+            errorMsg.textContent = 'Error al guardar el libro. Revisa los datos.';
+            return;
+        }
+
         cancelarEdicion();
-        await cargarLibros();
-        filtrarLibros();
+        await filtrarLibros(); // ← recarga respetando el filtro activo
     });
 
     cargarLibros();

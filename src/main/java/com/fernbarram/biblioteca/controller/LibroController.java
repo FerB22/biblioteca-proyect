@@ -21,9 +21,14 @@ public class LibroController {
     }
 
     @GetMapping
-    public List<Libro> listar() {
-        return libroService.listarTodos();
+    public ResponseEntity<List<Libro>> listar(@RequestParam(required = false) String texto) {
+        if (texto == null || texto.isBlank()) {
+            return ResponseEntity.ok(libroService.listarTodos());
+        } else {
+            return ResponseEntity.ok(libroService.buscarPorTexto(texto));
+        }
     }
+
 
     @GetMapping("/{id}")
     public ResponseEntity<Libro> obtenerPorId(@PathVariable Long id) {

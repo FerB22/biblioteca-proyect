@@ -2,7 +2,6 @@ package com.fernbarram.biblioteca.service;
 
 import com.fernbarram.biblioteca.model.Libro;
 import com.fernbarram.biblioteca.repository.LibroRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -11,8 +10,12 @@ import java.util.Optional;
 @Service
 public class LibroService {
 
-    @Autowired
-    private LibroRepository libroRepository;
+    private final LibroRepository libroRepository;
+
+    // Inyección por constructor
+    public LibroService(LibroRepository libroRepository) {
+        this.libroRepository = libroRepository;
+    }
 
     public List<Libro> listarTodos() {
         return libroRepository.findAll();
@@ -43,5 +46,20 @@ public class LibroService {
         libro.ifPresent(l -> libroRepository.deleteById(id));
         return libro.isPresent();
     }
-}
 
+    // Nuevo método: buscar por texto en título, autor o género
+    public List<Libro> buscarPorTexto(String texto) {
+        String textoLower = texto.toLowerCase();
+
+        return libroRepository.findAll().stream()
+                .filter(libro ->
+                        (libro.getTitulo() != null &&
+                                libro.getTitulo().toLowerCase().contains(textoLower)) ||
+                                (libro.getAutor() != null &&
+                                        libro.getAutor().toLowerCase().contains(textoLower)) ||
+                                (libro.getGenero() != null &&
+                                        libro.getGenero().toLowerCase().contains(textoLower))
+                )
+                .toList();
+    }
+}
